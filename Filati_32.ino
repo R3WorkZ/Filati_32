@@ -2,40 +2,43 @@
 
 #include "WiFi.h"
 #include "EEPROM.h"
-#include "FirebaseESP32.h"
 #include "AsyncTCP.h"
-#include "ESPAsyncWebServer.h"
+#include "ESPDateTime.h"
+#include "FirebaseESP32.h"
 #include "AsyncElegantOTA.h"
+#include "ESPAsyncWebServer.h"
 #include "my_credentials.h"  //Remove me
 
 #define LENGTH(x) (strlen(x) + 1)
 #define EEPROM_SIZE 200
 #define WiFi_rst 0
 
-#define PIN_R 21;
-#define PIN_Y 22;
-#define PIN_G 23;
+#define PIN_R 21
+#define PIN_Y 22
+#define PIN_G 23
 
-#define PIN1 16;
-#define PIN2 17;
-#define PIN3 18;
-#define PIN4 19;
+#define PIN1 16
+#define PIN2 17
+#define PIN3 18
+#define PIN4 19
 
 // #define FIREBASE_HOST "UnComment_Me&add__YOUR_RTDBLink"
 // #define FIREBASE_AUTH "UnComment_Me&add__YOUR_AUTH_KEY"
 
 AsyncWebServer server(80);
 
+int LOOP_Counter = 0;
+
 String ssid;
 String pass;
 FirebaseData fbdo;
+
+unsigned long rst_millis;
 
 bool switch1;
 bool switch2;
 bool switch3;
 bool switch4;
-
-unsigned long rst_millis;
 
 void setup() {
 
@@ -67,11 +70,11 @@ void setup() {
     delay(1000);
   } else {
     ssid = readStringFromFlash(0);
-    Serial.print("SSID = ");
-    Serial.println(ssid);
+    // Serial.print("SSID = ");
+    // Serial.println(ssid);
     pass = readStringFromFlash(40);
-    Serial.print("pass = ");
-    Serial.println(pass);
+    // Serial.print("pass = ");
+    // Serial.println(pass);
   }
 
   WiFi.begin(ssid.c_str(), pass.c_str());
@@ -122,20 +125,22 @@ void setup() {
 
     ssid = WiFi.SSID();
     pass = WiFi.psk();
-    Serial.print("SSID:");
-    Serial.println(ssid);
-    Serial.print("pass:");
-    Serial.println(pass);
+    // Serial.print("SSID:");
+    // Serial.println(ssid);
+    // Serial.print("pass:");
+    // Serial.println(pass);
     Serial.println("Store SSID & pass in Flash");
     writeStringToFlash(ssid.c_str(), 0);
     writeStringToFlash(pass.c_str(), 40);
 
+    setupDateTime();
     otaServerStart();
     connecToFirebase();
   } else {
     wifiLED();
     Serial.println("WiFi Connected!");
 
+    setupDateTime();
     otaServerStart();
     connecToFirebase();
   }
@@ -157,6 +162,11 @@ void loop() {
 
   if (Firebase.ready()) {
     databaseLED();
+    LOOP_Counter++;
+    if (LOOP_Counter >= 10) {
+      Serial.println(Firebase.RTDB.setString(&fbdo, "/myHome/deviceStats/dateTime", DateTime.toString().c_str()) ? "DateTime Sent to RTDB" : fbdo.errorReason().c_str());
+      LOOP_Counter = 0;
+    }
     if (Firebase.RTDB.getBool(&fbdo, "/myHome/switches/switch1")) {
       // Serial.println(fbdo.dataType());
       if (fbdo.dataType() == "boolean") {
@@ -208,6 +218,16 @@ String readStringFromFlash(int startAddr) {
   }
   return String(in);
 }
+
+void setupDateTime() {
+  DateTime.setServer("asia.pool.ntp.org");
+  DateTime.setTimeZone("IST-5:30");
+  DateTime.begin();
+  if (!DateTime.isTimeValid()) {
+    Serial.println("Failed to get time from server.");
+  }
+}
+
 
 void connecToFirebase() {
   Firebase.begin(FIREBASE_HOST, FIREBASE_AUTH);
