@@ -1,5 +1,6 @@
 # Filati_32
 
+# Project Discontinued here, Its Continued in [SmartHome](https://github.com/R3WorkZ/SmartHome_32.git)  
 ## SmartHome Starter-Kit
 
 - ESP32
